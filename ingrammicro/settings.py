@@ -18,14 +18,9 @@ DOWNLOADER_MIDDLEWARES = {
     'rotating_proxies.middlewares.RotatingProxyMiddleware': 610,
     'rotating_proxies.middlewares.BanDetectionMiddleware': 620,
     'scrapy_useragents.downloadermiddlewares.useragents.UserAgentsMiddleware': 700,
-    'scrapy_selenium.SeleniumMiddleware': 800,
 }
 
 FEED_EXPORT_ENCODING = 'utf-8'
-
-SELENIUM_DRIVER_NAME = 'chrome'
-SELENIUM_DRIVER_EXECUTABLE_PATH = 'chromedriver.exe'
-SELENIUM_DRIVER_ARGUMENTS = ['-headless']
 
 ROTATING_PROXY_LIST = [
     'https://daveklien:6A1IVqkat9uTiBMwnAl@192.241.70.45:2089',
