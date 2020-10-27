@@ -5,9 +5,10 @@ NEWSPIDER_MODULE = 'ingrammicro.spiders'
 
 ROBOTSTXT_OBEY = True
 
-CONCURRENT_REQUESTS = 16
+CONCURRENT_REQUESTS = 32
 DOWNLOAD_DELAY = 0
 LOG_LEVEL = 'INFO'
+
 
 ITEM_PIPELINES = {
     'ingrammicro.pipelines.IngrammicroPipeline': 300,
@@ -23,6 +24,8 @@ DOWNLOADER_MIDDLEWARES = {
 FEED_EXPORT_ENCODING = 'utf-8'
 
 ROTATING_PROXY_LIST = [
+    '''
+
     'https://daveklien:6A1IVqkat9uTiBMwnAl@192.241.70.45:2089',
     'https://daveklien:6A1IVqkat9uTiBMwnAl@192.241.70.136:2089',
     'https://daveklien:6A1IVqkat9uTiBMwnAl@198.245.79.112:2089',
@@ -33,9 +36,9 @@ ROTATING_PROXY_LIST = [
     'https://daveklien:6A1IVqkat9uTiBMwnAl@104.144.173.41:2089',
     'https://daveklien:6A1IVqkat9uTiBMwnAl@104.144.145.86:2089',
 
-        ]
-'''
-'https://daveklien:6A1IVqkat9uTiBMwnAl@104.144.196.122:2089',
+    '''
+    
+    'https://daveklien:6A1IVqkat9uTiBMwnAl@104.144.196.122:2089',
     'https://daveklien:6A1IVqkat9uTiBMwnAl@104.144.210.41:2089',
     'https://daveklien:6A1IVqkat9uTiBMwnAl@104.144.215.10:2089',
     'https://daveklien:6A1IVqkat9uTiBMwnAl@104.144.227.171:2089',
@@ -54,7 +57,7 @@ ROTATING_PROXY_LIST = [
     'https://daveklien:6A1IVqkat9uTiBMwnAl@104.144.253.136:2089',
 
 ]
-'''
+
 
 USER_AGENTS = [
     'Mozilla/5.0 (iPad; CPU OS 8_2 like Mac OS X) AppleWebKit/600.1.4 (KHTML, like Gecko) Version/8.0 Mobile/12D508 Safari/600.1.4',
@@ -86,5 +89,4 @@ USER_AGENTS = [
     'Mozilla/5.0 (iPad; CPU OS 8_4_1 like Mac OS X) AppleWebKit/600.1.4 (KHTML, like Gecko) GSA/7.0.55539 Mobile/12H321 Safari/600.1.4',
     'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.155 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.85 Safari/537.36',
-
 ]

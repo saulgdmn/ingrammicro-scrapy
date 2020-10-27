@@ -1,103 +1,194 @@
 import requests
-import json
 import subprocess
+import logging
+import json
 
-from pprint import pprint
-from requests.exceptions import ReadTimeout
+import pandas as pd
+
+from requests.exceptions import ReadTimeout, RequestException
 from woocommerce import API
+import pickledb
 
-wcapi = API(
-    url="https://www.univold.com",
-    consumer_key="ck_5466b6b190dae77021242be909655b4507aad812",
-    consumer_secret="cs_2f7a0e9e4efaa717fc54db090c64248165c72de5",
-    version="wc/v3",
-    query_string_auth=True,
-    timeout=3
+logging.basicConfig(
+    format='%(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
 )
 
-def create_categories(categories):
-    result = []
-    for category in categories:
-        if not category:
-            continue
+log = logging.getLogger(__name__)
 
+categories_db = pickledb.load('categories.db', False)
+products_db = pickledb.load('products.db', False)
+
+wcapi = API(
+    url="https://www.boardwalktel.com",
+    consumer_key="ck_50489c0923c472440db0472e11f4baca25d48369",
+    consumer_secret="cs_ab21d88338a4a20edfecab20f391ec1e45e72fe1",
+    version="wc/v2",
+    query_string_auth=True,
+    timeout=30
+)
+
+
+def pull_categories():
+    page = 1
+    while 1:
         response = wcapi.get(
             endpoint='products/categories',
             params={
-                'search': category,
-                'per_page': 1
+                'per_page': 100,
+                'page': page
             }
         )
 
-        if not response.json():
-            response = wcapi.post(
-                endpoint='products/categories',
-                data={
-                    'name': category,
-                }
-            )
+        data = response.json()
+        if not data:
+            break
 
-            category_id = response.json().get('id', None)
-            if not category_id:
+        for item in data:
+            item_key = item.get('name', None)
+            if not item_key:
                 continue
 
-            result.append({'id': category_id})
-        else:
-            category_id = response.json()[0].get('id', None)
-            if not category_id:
+            item_value = item.get('id', None)
+            if not item_value:
                 continue
 
-            result.append({'id': category_id})
+            item_key = item_key.encode('ascii').decode('ascii')
 
-    return result
+            categories_db.set(item_key,  item_value)
 
+        page += 1
+        categories_db.dump()
 
-def is_product_duplicated(vpn):
-    result = wcapi.get(
-        endpoint='products',
-        params={
-            'sku': vpn
-        }
-    )
+    categories_db.dump()
 
-    if not result.json():
-        return False
-
-    return result.json()
-
-
-def get_product_attributes(specs):
-    result = []
-    if not specs:
-        return []
-    for sub_spec in specs:
-        for spec in sub_spec.get('productSpecifications', []):
-            result.append({
-                'name': spec.get('key'),
-                'options': [spec.get('value')],
-                'visible': True
-            })
-    return result
-
-
-def push_products_batch(items):
-    try:
+def create_categories(categories):
+    for category in categories:
         response = wcapi.post(
+            endpoint='products/categories',
+            data={
+                'name': category,
+            }
+        )
+
+        if response.status_code != 201:
+            continue
+
+        key = response.json().get('name', None)
+        if not key:
+            continue
+
+        value = response.json().get('id', None)
+        if not value:
+            continue
+
+        categories_db.set(key, value)
+
+
+def pull_products():
+    page = 1
+    while 1:
+        response = wcapi.get(
+            endpoint='products',
+            params={
+                'per_page': 100,
+                'page': page
+            }
+        )
+
+        data = response.json()
+        if not data:
+            break
+
+        for item in data:
+            item_key = item.get('sku', None)
+            if not item_key:
+                continue
+
+            item_value = item.get('id', None)
+            if not item_value:
+                continue
+
+            item_key = item_key.encode('ascii').decode('ascii')
+
+            products_db.set(item_key, item_value)
+
+        page += 1
+        products_db.dump()
+
+    products_db.dump()
+
+
+def create_or_update_products(products_create, products_update):
+    try:
+        wcapi.post(
             endpoint='products/batch',
             data={
-                'create': items
+                'create': products_create,
+                'update': products_update
             }
         )
     except ReadTimeout:
         return True
+    except RequestException:
+        log.warning('Connection error. Retrying..')
+        return False
 
-    print(response.status_code, response.text)
     return True
+
+
+def get_product_categories(categories):
+    if not categories:
+        return []
+
+    results = []
+    for category in categories:
+        if not category:
+            continue
+
+        if not categories_db.exists(category):
+            continue
+
+        results.append({'id': categories_db.get(category)})
+
+    return results
+
+
+def get_product_attributes(specs):
+    if not specs:
+        return []
+
+    results = []
+    for sub_spec in specs:
+        for spec in sub_spec.get('productSpecifications', []):
+            results.append({
+                'name': spec.get('key'),
+                'options': [spec.get('value')],
+                'visible': True
+            })
+    return results
+
+
+def get_product_images(images):
+    if not images:
+        return []
+
+    results = []
+    for image in images:
+        pass
+
+        if 'no-image-xl.png' in image:
+            continue
+
+        results.append({'src': image})
+
+    return results
 
 
 def find_brand_name(specs):
     if not specs:
         return None
+
     for sub_spec in specs:
         for spec in sub_spec.get('productSpecifications', []):
             if spec['key'] == 'Brand Name':
@@ -106,8 +197,11 @@ def find_brand_name(specs):
     return None
 
 
-def handle_row(item):
+def handle_raw_product(item):
     if item.get('stockStatus').replace(' ', '').lower() == 'outofstock':
+        return None
+
+    if not item.get('vpn', None):
         return None
 
     data = {
@@ -127,9 +221,9 @@ def handle_row(item):
             'width': str(item.get('productMeasurement').get('pMeasureWidth', None)),
             'height': str(item.get('productMeasurement').get('pMeasureHeight', None))
         },
-        #'categories': get_categories([item.get('category', None), item.get('subCategory', None)]),
+        'categories': get_product_categories([item.get('category', None), item.get('subCategory', None)]),
         'attributes': get_product_attributes(item.get('basicSpecifications')),
-        'images': [{'src': x} for x in item.get('imageGalleryURLHigh', []) if 'no-image-xl.png' not in x],
+        'images': get_product_images(item.get('imageGalleryURLHigh', None)),
         'meta_data': [
             {
                 'key': '_wpmr_upc',
@@ -145,23 +239,61 @@ def handle_row(item):
 
     return data
 
+def handle_raw_products_dump(filename):
 
-with open('22.10.2020-copy-prepared.jsonlines', 'r', encoding='utf-8') as f:
-    data = json.load(f)
+    log.info('Opening {}..'.format(filename))
 
-    for x in range(4):
-        push_products_batch(data[x * 100:(x + 1) * 100])
+    total_count = 0
+    out_of_stock_count = 0
+    wrong_data_count = 0
 
-'''
-results = []
-with open('22.10.2020-copy.jsonlines', 'r', encoding='utf8') as f:
-    for line in f.readlines():
-        d = handle_row(json.loads(line))
-        if not d:
-            continue
+    create_buffer = []
+    update_buffer = []
+    with open(filename, 'r', encoding='utf-8') as f:
+        for line in f:
 
-        results.append(d)
+            total_count += 1
 
-with open('22.10.2020-copy-prepared.jsonlines', 'w', encoding='utf-8') as f:
-    f.write(json.dumps(results))
-'''
+            if line.endswith('\n'):
+                line = line[:-1]
+
+            try:
+                item = handle_raw_product(json.loads(line))
+                if not item:
+                    out_of_stock_count += 1
+                    continue
+            except Exception as e:
+                log.warning('Something has gone wrong: {}'.format(e))
+                continue
+
+            if products_db.exists(item.get('sku')):
+                item.update({
+                    'id': products_db.get(item.get('sku'))
+                })
+                #update_buffer.append(item)
+            else:
+                create_buffer.append(item)
+
+            if (len(create_buffer) + len(update_buffer)) == 100:
+                log.info('Sending batch data: {}, {}'.format(len(create_buffer), len(update_buffer)))
+
+                while not create_or_update_products(create_buffer, update_buffer):
+                    pass
+
+                create_buffer.clear()
+                update_buffer.clear()
+
+    log.info('total_count: {}\nout_of_stock_count: {}'.format(total_count, out_of_stock_count))
+    log.info('Finished!')
+
+
+#pull_categories()
+#pull_products()
+
+handle_raw_products_dump('22.10.2020-copy.jsonlines')
+
+
+#with open('products_dump.json') as f:
+
+#    data = json.load(f)
+#    print(len(data))
