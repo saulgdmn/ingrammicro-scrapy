@@ -28,7 +28,8 @@ class ProductsSpider(scrapy.Spider):
 
     def parse_event(self, response: Response):
         m = re.search(r'\{\"productDetail\"\:([^;]+)\)\;', response.text) or \
-            re.search(r'\{\"productDetail\"\:([^&]+)\)\;', response.text)
+            re.search(r'\{\"productDetail\"\:([^&]+)\)\;', response.text) or \
+            re.search(r'\{\"productDetail\"\:([^*]+"isEndUserFavoriteEnabled":true})\);', response.text)
 
         if not m:
             raise DropItem('Match error')
