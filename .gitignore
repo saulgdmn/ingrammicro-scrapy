@@ -1,6 +1,4 @@
-ingrammicro/*.jsonlines
-ingrammicro/*.json
-ingrammicro/*.json
-*/__pycache__/
+*.log
+*/*/__pycache__/
 venv/
 .idea/

@@ -1,38 +1,31 @@
-import requests
-import subprocess
+import os
 import logging
+import argparse
 import json
 
-import pandas as pd
-
+import yaml
 from requests.exceptions import ReadTimeout, RequestException
 from woocommerce import API
+
 import pickledb
 
 logging.basicConfig(
-    format='%(name)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
 log = logging.getLogger(__name__)
 
-categories_db = pickledb.load('categories.db', False)
-products_db = pickledb.load('products.db', False)
+CATEGORIES_DB = None
+PRODUCTS_DB = None
 
-wcapi = API(
-    url="https://www.boardwalktel.com",
-    consumer_key="ck_50489c0923c472440db0472e11f4baca25d48369",
-    consumer_secret="cs_ab21d88338a4a20edfecab20f391ec1e45e72fe1",
-    version="wc/v2",
-    query_string_auth=True,
-    timeout=30
-)
+WCAPI = None
 
 
 def pull_categories():
     page = 1
     while 1:
-        response = wcapi.get(
+        response = WCAPI.get(
             endpoint='products/categories',
             params={
                 'per_page': 100,
@@ -55,40 +48,18 @@ def pull_categories():
 
             item_key = item_key.encode('ascii').decode('ascii')
 
-            categories_db.set(item_key,  item_value)
+            CATEGORIES_DB.set(item_key,  item_value)
 
         page += 1
-        categories_db.dump()
+        CATEGORIES_DB.dump()
 
-    categories_db.dump()
-
-def create_categories(categories):
-    for category in categories:
-        response = wcapi.post(
-            endpoint='products/categories',
-            data={
-                'name': category,
-            }
-        )
-
-        if response.status_code != 201:
-            continue
-
-        key = response.json().get('name', None)
-        if not key:
-            continue
-
-        value = response.json().get('id', None)
-        if not value:
-            continue
-
-        categories_db.set(key, value)
+    CATEGORIES_DB.dump()
 
 
 def pull_products():
     page = 1
     while 1:
-        response = wcapi.get(
+        response = WCAPI.get(
             endpoint='products',
             params={
                 'per_page': 100,
@@ -111,17 +82,54 @@ def pull_products():
 
             item_key = item_key.encode('ascii').decode('ascii')
 
-            products_db.set(item_key, item_value)
+            PRODUCTS_DB.set(item_key, item_value)
 
         page += 1
-        products_db.dump()
+        PRODUCTS_DB.dump()
 
-    products_db.dump()
+    PRODUCTS_DB.dump()
+
+
+def get_or_create_categories(categories):
+    if not categories:
+        return []
+
+    results = []
+    for category in categories:
+        if not category:
+            continue
+
+        if CATEGORIES_DB.exists(category):
+            results.append({'id': CATEGORIES_DB.get(category)})
+            continue
+
+        response = WCAPI.post(
+            endpoint='products/categories',
+            data={
+                'name': category,
+            }
+        )
+
+        if response.status_code != 201:
+            continue
+
+        key = response.json().get('name', None)
+        if not key:
+            continue
+
+        value = response.json().get('id', None)
+        if not value:
+            continue
+
+        CATEGORIES_DB.set(key, value)
+        results.append({'id': value})
+
+    return results
 
 
 def create_or_update_products(products_create, products_update):
     try:
-        wcapi.post(
+        WCAPI.post(
             endpoint='products/batch',
             data={
                 'create': products_create,
@@ -135,23 +143,6 @@ def create_or_update_products(products_create, products_update):
         return False
 
     return True
-
-
-def get_product_categories(categories):
-    if not categories:
-        return []
-
-    results = []
-    for category in categories:
-        if not category:
-            continue
-
-        if not categories_db.exists(category):
-            continue
-
-        results.append({'id': categories_db.get(category)})
-
-    return results
 
 
 def get_product_attributes(specs):
@@ -197,8 +188,13 @@ def find_brand_name(specs):
     return None
 
 
-def handle_raw_product(item):
-    if item.get('stockStatus').replace(' ', '').lower() == 'outofstock':
+def handle_product(item):
+
+    stock_status = item.get('stockStatus', None)
+    is_direct_ship = item.get('isDirectShip', False)
+    is_direct_ship_orderable = item.get('isDirectShipOrderable', False)
+
+    if stock_status == 'Out Of Stock' and not is_direct_ship and not is_direct_ship_orderable:
         return None
 
     if not item.get('vpn', None):
@@ -212,16 +208,14 @@ def handle_raw_product(item):
         'sku': item.get('vpn', None),
         'regular_price': str(item.get('priceAndStock').get('msrpPrice')),
         'sale_price': str(item.get('priceAndStock').get('dealerPrice')),
-        'stock_status': item.get('stockStatus').replace(' ', '').lower(),
-        'manage_stock': True,
-        'stock_quantity': item.get('priceAndStock').get('availableQuantity', 0),
+        'stock_status': 'instock',
         'weight': str(item.get('productMeasurement').get('pMeasureWeight', None)),
         'dimensions': {
             'length': str(item.get('productMeasurement').get('pMeasureLength', None)),
             'width': str(item.get('productMeasurement').get('pMeasureWidth', None)),
             'height': str(item.get('productMeasurement').get('pMeasureHeight', None))
         },
-        'categories': get_product_categories([item.get('category', None), item.get('subCategory', None)]),
+        'categories': get_or_create_categories([item.get('category', None), item.get('subCategory', None)]),
         'attributes': get_product_attributes(item.get('basicSpecifications')),
         'images': get_product_images(item.get('imageGalleryURLHigh', None)),
         'meta_data': [
@@ -234,48 +228,55 @@ def handle_raw_product(item):
                 'value': find_brand_name(item.get('basicSpecifications'))
             }
         ]
-
     }
+
+    if item.get('priceAndStock').get('availableQuantity', None):
+        data.update({
+            'manage_stock': True,
+            'stock_quantity': item.get('priceAndStock').get('availableQuantity', None)
+        })
 
     return data
 
-def handle_raw_products_dump(filename):
+def handle_filename(fn, batch_len, update_if_exist):
 
-    log.info('Opening {}..'.format(filename))
+    log.info('Starting uploading "{}" with batch_len is {}..'.format(fn, batch_len))
 
     total_count = 0
-    out_of_stock_count = 0
-    wrong_data_count = 0
 
     create_buffer = []
     update_buffer = []
-    with open(filename, 'r', encoding='utf-8') as f:
-        for line in f:
 
-            total_count += 1
+    with open(fn, 'r', encoding='utf-8') as f:
+        for line in f:
 
             if line.endswith('\n'):
                 line = line[:-1]
 
             try:
-                item = handle_raw_product(json.loads(line))
+                item = handle_product(json.loads(line))
                 if not item:
-                    out_of_stock_count += 1
                     continue
             except Exception as e:
                 log.warning('Something has gone wrong: {}'.format(e))
                 continue
 
-            if products_db.exists(item.get('sku')):
+            if PRODUCTS_DB.exists(item.get('sku')):
+                if not update_if_exist:
+                    continue
+
                 item.update({
-                    'id': products_db.get(item.get('sku'))
+                    'id': PRODUCTS_DB.get(item.get('sku'))
                 })
-                #update_buffer.append(item)
+                update_buffer.append(item)
             else:
                 create_buffer.append(item)
 
-            if (len(create_buffer) + len(update_buffer)) == 100:
-                log.info('Sending batch data: {}, {}'.format(len(create_buffer), len(update_buffer)))
+            if (len(create_buffer) + len(update_buffer)) == batch_len:
+                total_count += batch_len
+
+                log.info('Sending batch data, to create - {}, to update - {}, total - {})'.format(
+                    len(create_buffer), len(update_buffer), total_count))
 
                 while not create_or_update_products(create_buffer, update_buffer):
                     pass
@@ -283,17 +284,63 @@ def handle_raw_products_dump(filename):
                 create_buffer.clear()
                 update_buffer.clear()
 
-    log.info('total_count: {}\nout_of_stock_count: {}'.format(total_count, out_of_stock_count))
     log.info('Finished!')
 
 
-#pull_categories()
-#pull_products()
+def run():
+    global CATEGORIES_DB, PRODUCTS_DB, WCAPI
 
-handle_raw_products_dump('22.10.2020-copy.jsonlines')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--filename', action='store', required=True)
+    parser.add_argument('--config', action='store', required=True)
+    parser.add_argument('--timeout', action='store', default='10')
+    parser.add_argument('--batch_len', action='store', default='10')
+    parser.add_argument('--update_if_exist', action='store_true')
+    parser.add_argument('--pull_categories', action='store_true')
+    parser.add_argument('--pull_products', action='store_true')
+
+    args = parser.parse_args()
+
+    with open(args.config, 'r') as f:
+        config = yaml.load(f, yaml.BaseLoader)
+
+    CATEGORIES_DB = pickledb.load(os.path.join('imports', '%s_categories.db' % config.get('name')), False)
+    PRODUCTS_DB = pickledb.load(os.path.join('imports', '%s_products.db' % config.get('name')), False)
+
+    WCAPI = API(
+        url=config.get('url'),
+        consumer_key=config.get('consumer_key'),
+        consumer_secret=config.get('consumer_secret'),
+        version="wc/v2",
+        query_string_auth=True,
+        timeout=int(args.timeout)
+    )
+
+    if args.pull_categories:
+        log.info('Pulling categories from website..')
+        pull_categories()
+        log.info('Count of pulled categories: {}'.format(len(CATEGORIES_DB.getall())))
+
+    if args.pull_products:
+        log.info('Pulling products from website..')
+        pull_products()
+        log.info('Count of pulled products: {}'.format(len(PRODUCTS_DB.getall())))
+
+    handle_filename(
+        fn=args.filename,
+        batch_len=int(args.batch_len),
+        update_if_exist=args.update_if_exist
+    )
 
 
-#with open('products_dump.json') as f:
+if __name__ == '__main__':
+    run()
 
-#    data = json.load(f)
-#    print(len(data))
+# PRODUCTS_COUNT =  658 876
+# SUBCATEGORIES_PRODUCT_COUNT =  435 891
+
+
+# total_count: 249694
+# out_of_stock_count: 223579
+
+# 48 701 at 23:29
