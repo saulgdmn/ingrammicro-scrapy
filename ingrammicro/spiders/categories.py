@@ -1,23 +1,44 @@
+import os
 import json
+import logging
+from datetime import datetime as dt
 
 import scrapy
+from scrapy import signals
 from scrapy.http import Request, Response
 
 
 class CategoriesSpider(scrapy.Spider):
     name = 'categories'
 
+    custom_settings = {
+        'LOG_FILE': os.path.join(
+            'crawls', '{}_{}.log'.format(
+                dt.now().strftime('%Y-%m-%dT%H-%M-%S'), name)
+        )
+    }
+
     deny_categories = [
         'Software',
         ' Sw',
         'Service',
         'Warranties',
-        'Office Productivity'
+        'Office Productivity',
+        'Training'
     ]
 
     categories_products_deny = 0
     categories_products = 0
-    vendor_products = 0
+
+    @classmethod
+    def from_crawler(cls, crawler, *args, **kwargs):
+        spider = super().from_crawler(crawler, *args, **kwargs)
+        crawler.signals.connect(spider.spider_closed, signal=signals.spider_closed)
+        return spider
+
+    def spider_closed(self, spider):
+        print('categories_products_deny = {}'.format(self.categories_products_deny))
+        print('categories_products = {}'.format(self.categories_products))
 
     def category_is_deny(self, category):
         for x in self.deny_categories:
@@ -102,7 +123,8 @@ class CategoriesSpider(scrapy.Spider):
             if not record_count:
                 continue
 
-            self.vendor_products += record_count
+            if record_count >= 10000:
+                print('Data loss!!!')
 
             for page in range(1, (record_count // 50) + 2):
                 yield Request(
