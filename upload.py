@@ -203,6 +203,9 @@ def handle_product(item):
     if not item.get('priceAndStock').get('msrpPrice'):
         return None
 
+    if 'training' in item.get('title', '').lower():
+        return None
+
     data = {
         'type': 'simple',
         'status': 'publish',
