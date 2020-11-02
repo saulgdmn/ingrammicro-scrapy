@@ -200,6 +200,9 @@ def handle_product(item):
     if not item.get('vpn', None):
         return None
 
+    if not item.get('priceAndStock').get('msrpPrice'):
+        return None
+
     data = {
         'type': 'simple',
         'status': 'publish',

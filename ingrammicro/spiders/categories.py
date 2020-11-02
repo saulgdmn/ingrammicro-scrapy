@@ -1,6 +1,5 @@
 import os
 import json
-import logging
 from datetime import datetime as dt
 
 import scrapy
@@ -23,12 +22,14 @@ class CategoriesSpider(scrapy.Spider):
         ' Sw',
         'Service',
         'Warranties',
+        'Warranty',
         'Office Productivity',
         'Training'
     ]
 
     categories_products_deny = 0
     categories_products = 0
+    vendor_products = 0
 
     @classmethod
     def from_crawler(cls, crawler, *args, **kwargs):
@@ -37,8 +38,9 @@ class CategoriesSpider(scrapy.Spider):
         return spider
 
     def spider_closed(self, spider):
-        print('categories_products_deny = {}'.format(self.categories_products_deny))
-        print('categories_products = {}'.format(self.categories_products))
+        self.logger.info('categories_products_deny = {}'.format(self.categories_products_deny))
+        self.logger.info('categories_products = {}'.format(self.categories_products))
+        self.logger.info('vendor_products = {}'.format(self.vendor_products))
 
     def category_is_deny(self, category):
         for x in self.deny_categories:
@@ -81,7 +83,7 @@ class CategoriesSpider(scrapy.Spider):
 
             if record_count >= 10000:
                 yield Request(
-                    url="https://usa.ingrammicro.com/_layouts/CommerceServer/IM/MainMenu.asmx/GetProductSubCategory",
+                    url="https://usa.ingrammicro.com/_layouts/CommerceServer/IM/MainMenu.asmx/GetProductSubCategoryVendor",
                     callback=self.parse_subcategories_vendors,
                     headers={
                         "accept": "application/json, text/javascript, */*; q=0.01",
@@ -123,8 +125,7 @@ class CategoriesSpider(scrapy.Spider):
             if not record_count:
                 continue
 
-            if record_count >= 10000:
-                print('Data loss!!!')
+            self.vendor_products += record_count
 
             for page in range(1, (record_count // 50) + 2):
                 yield Request(
