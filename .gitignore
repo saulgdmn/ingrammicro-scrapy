@@ -1,5 +1,6 @@
 *.log
 *.jsonlines
+*.db
 ingrammicro/__pycache__/
 ingrammicro/spiders/__pycache__/
 venv/
