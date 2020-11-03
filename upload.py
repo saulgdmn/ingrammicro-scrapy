@@ -108,16 +108,13 @@ def cleanup_products(search_queries):
                 break
 
             count += len(data)
-            print(count)
 
-            '''
             WCAPI.post(
                 endpoint='products/batch',
                 data={
                     'delete': [item.get('id', None) for item in data]
                 }
             )
-            '''
 
             page += 1
 
