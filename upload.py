@@ -22,18 +22,6 @@ PRODUCTS_DB = None
 WCAPI = None
 
 
-def remove_products(products):
-    try:
-        WCAPI.post(
-            endpoint='products/batch',
-            data={
-                'delete': products,
-            }
-        )
-    except Exception:
-        pass
-
-
 def pull_categories():
     page = 1
     while 1:
@@ -60,7 +48,7 @@ def pull_categories():
 
             item_key = item_key.encode('ascii').decode('ascii')
 
-            CATEGORIES_DB.set(item_key,  item_value)
+            CATEGORIES_DB.set(item_key, item_value)
 
         page += 1
         CATEGORIES_DB.dump()
@@ -83,7 +71,6 @@ def pull_products():
         if not data:
             break
 
-        to_remove = []
         for item in data:
             item_key = item.get('sku', None)
             if not item_key:
@@ -93,31 +80,42 @@ def pull_products():
             if not item_value:
                 continue
 
-            if not item.get('regular_price', None) and not item.get('sale_price', None):
-                to_remove.append(item_value)
-                continue
-
-            for x in ['training', 'software', 'warranties', 'warranty']:
-                if x in item.get('name', '').lower():
-                    to_remove.append(item_value)
-                    continue
-
-            for x in ['training', 'software']:
-                if x in item.get('description', '').lower():
-                    to_remove.append(item_value)
-                    continue
-
             item_key = item_key.encode('ascii').decode('ascii')
             PRODUCTS_DB.set(item_key, item_value)
 
         page += 1
         PRODUCTS_DB.dump()
 
-        if to_remove:
-            remove_products(to_remove)
-            to_remove.clear()
-
     PRODUCTS_DB.dump()
+
+
+def cleanup_products(search_queries):
+    for query in search_queries:
+        page = 1
+        while 1:
+            response = WCAPI.get(
+                endpoint='products',
+                params={
+                    'per_page': 100,
+                    'page': page,
+                    'search': query
+                }
+            )
+
+            data = response.json()
+            if not data:
+                break
+            '''
+            WCAPI.post(
+                endpoint='products/batch',
+                data={
+                    'delete': [item.get('id', None) for item in data]
+                }
+            )
+            '''
+            print([item.get('id', None) for item in data])
+
+            page += 1
 
 
 def get_or_create_categories(categories):
@@ -219,7 +217,6 @@ def find_brand_name(specs):
 
 
 def handle_product(item):
-
     stock_status = item.get('stockStatus', None)
     is_direct_ship = item.get('isDirectShip', False)
     is_direct_ship_orderable = item.get('isDirectShipOrderable', False)
@@ -235,10 +232,6 @@ def handle_product(item):
 
     for x in ['training', 'software', 'warranties', 'warranty']:
         if x in item.get('title', '').lower():
-            return None
-
-    for x in ['training', 'software']:
-        if x in item.get('description', '').lower():
             return None
 
     data = {
@@ -279,8 +272,8 @@ def handle_product(item):
 
     return data
 
-def handle_filename(fn, batch_len, update_if_exist):
 
+def handle_filename(fn, batch_len, update_if_exist):
     log.info('Starting uploading "{}" with batch_len is {}..'.format(fn, batch_len))
 
     total_count = 0
@@ -339,6 +332,7 @@ def run():
     parser.add_argument('--update_if_exist', action='store_true')
     parser.add_argument('--pull_categories', action='store_true')
     parser.add_argument('--pull_products', action='store_true')
+    parser.add_argument('--cleanup_products', action='store_true')
 
     args = parser.parse_args()
 
@@ -366,6 +360,10 @@ def run():
         log.info('Pulling products from website..')
         pull_products()
         log.info('Count of pulled products: {}'.format(len(PRODUCTS_DB.getall())))
+
+    if args.cleanup_products:
+        log.info('Cleanup products..')
+        cleanup_products(['software', 'license', 'training'])
 
     handle_filename(
         fn=args.filename,
