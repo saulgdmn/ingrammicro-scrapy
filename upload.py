@@ -22,6 +22,15 @@ PRODUCTS_DB = None
 WCAPI = None
 
 
+def remove_products(products):
+    WCAPI.post(
+        endpoint='products/batch',
+        data={
+            'delete': products,
+        }
+    )
+
+
 def pull_categories():
     page = 1
     while 1:
@@ -71,6 +80,7 @@ def pull_products():
         if not data:
             break
 
+        to_remove = []
         for item in data:
             item_key = item.get('sku', None)
             if not item_key:
@@ -80,12 +90,29 @@ def pull_products():
             if not item_value:
                 continue
 
-            item_key = item_key.encode('ascii').decode('ascii')
+            if not item.get('regular_price', None) and not item.get('sale_price', None):
+                to_remove.append(item_value)
+                continue
 
+            for x in ['training', 'software', 'warranties', 'warranty']:
+                if x in item.get('name', '').lower():
+                    to_remove.append(item_value)
+                    continue
+
+            for x in ['training', 'software']:
+                if x in item.get('description', '').lower():
+                    to_remove.append(item_value)
+                    continue
+
+            item_key = item_key.encode('ascii').decode('ascii')
             PRODUCTS_DB.set(item_key, item_value)
 
         page += 1
         PRODUCTS_DB.dump()
+
+        if to_remove:
+            remove_products(to_remove)
+            to_remove.clear()
 
     PRODUCTS_DB.dump()
 
