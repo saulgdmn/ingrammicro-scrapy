@@ -109,12 +109,15 @@ def cleanup_products(search_queries):
 
             count += len(data)
 
-            WCAPI.post(
-                endpoint='products/batch',
-                data={
-                    'delete': [item.get('id', None) for item in data]
-                }
-            )
+            try:
+                WCAPI.post(
+                    endpoint='products/batch',
+                    data={
+                        'delete': [item.get('id', None) for item in data]
+                    }
+                )
+            except Exception:
+                pass
 
             page += 1
 
@@ -366,7 +369,8 @@ def run():
 
     if args.cleanup_products:
         log.info('Cleanup products..')
-        cleanup_products(['software', 'license', 'training'])
+        deleted_products_count = cleanup_products(['software', 'license', 'training'])
+        log.info('Count of deleted products: {}'.format(deleted_products_count))
 
     handle_filename(
         fn=args.filename,
