@@ -230,11 +230,16 @@ def handle_product(item):
     if not item.get('vpn', None):
         return None
 
-    if not item.get('priceAndStock').get('msrpPrice'):
+    if not item.get('priceAndStock').get('msrpPrice', None) and not item.get('priceAndStock').get('dealerPrice', None):
         return None
 
-    if 'training' in item.get('title', '').lower():
-        return None
+    for x in ['training', 'software', 'warranties', 'warranty']:
+        if x in item.get('title', '').lower():
+            return None
+
+    for x in ['training', 'software']:
+        if x in item.get('description', '').lower():
+            return None
 
     data = {
         'type': 'simple',
