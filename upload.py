@@ -23,12 +23,15 @@ WCAPI = None
 
 
 def remove_products(products):
-    WCAPI.post(
-        endpoint='products/batch',
-        data={
-            'delete': products,
-        }
-    )
+    try:
+        WCAPI.post(
+            endpoint='products/batch',
+            data={
+                'delete': products,
+            }
+        )
+    except Exception:
+        pass
 
 
 def pull_categories():
