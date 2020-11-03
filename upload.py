@@ -90,6 +90,7 @@ def pull_products():
 
 
 def cleanup_products(search_queries):
+    count = 0
     for query in search_queries:
         page = 1
         while 1:
@@ -105,6 +106,10 @@ def cleanup_products(search_queries):
             data = response.json()
             if not data:
                 break
+
+            count += len(data)
+            print(count)
+
             '''
             WCAPI.post(
                 endpoint='products/batch',
@@ -113,9 +118,10 @@ def cleanup_products(search_queries):
                 }
             )
             '''
-            print([item.get('id', None) for item in data])
 
             page += 1
+
+    return count
 
 
 def get_or_create_categories(categories):
