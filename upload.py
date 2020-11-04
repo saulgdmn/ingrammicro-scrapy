@@ -367,16 +367,18 @@ def run():
         pull_products()
         log.info('Count of pulled products: {}'.format(len(PRODUCTS_DB.getall())))
 
-    if args.cleanup_products:
-        log.info('Cleanup products..')
-        deleted_products_count = cleanup_products(['software', 'license', 'training'])
-        log.info('Count of deleted products: {}'.format(deleted_products_count))
-
+    '''
     handle_filename(
         fn=args.filename,
         batch_len=int(args.batch_len),
         update_if_exist=args.update_if_exist
     )
+    '''
+
+    if args.cleanup_products:
+        log.info('Cleanup products..')
+        deleted_products_count = cleanup_products(['software', 'license', 'training'])
+        log.info('Count of deleted products: {}'.format(deleted_products_count))
 
 
 if __name__ == '__main__':
