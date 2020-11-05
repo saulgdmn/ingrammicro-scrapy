@@ -129,18 +129,16 @@ def cleanup_products(search_queries):
         to_delete += [item.get('id', None) for item in data]
         page += 1
 
-
-    '''
-    try:
-        WCAPI.post(
-            endpoint='products/batch',
-            data={
-                'delete': 
-            }
-        )
-    except Exception:
-        pass
-    '''
+    for i in range(0, len(to_delete), 100):
+        try:
+            WCAPI.post(
+                endpoint='products/batch',
+                data={
+                    'delete': to_delete[i: i + 100]
+                }
+            )
+        except Exception:
+            pass
 
     return len(to_delete)
 
