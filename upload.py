@@ -90,7 +90,7 @@ def pull_products():
 
 
 def cleanup_products(search_queries):
-    count = 0
+    to_delete = []
     for query in search_queries:
         page = 1
         while 1:
@@ -107,21 +107,42 @@ def cleanup_products(search_queries):
             if not data:
                 break
 
-            count += len(data)
-
-            try:
-                WCAPI.post(
-                    endpoint='products/batch',
-                    data={
-                        'delete': [item.get('id', None) for item in data]
-                    }
-                )
-            except Exception:
-                pass
-
+            to_delete += [item.get('id', None) for item in data]
             page += 1
 
-    return count
+    page = 1
+    while 1:
+        response = WCAPI.get(
+            endpoint='products',
+            params={
+                'per_page': 100,
+                'page': page,
+                'min_price': '0.0',
+                'max_price': '0.2'
+            }
+        )
+
+        data = response.json()
+        if not data:
+            break
+
+        to_delete += [item.get('id', None) for item in data]
+        page += 1
+
+
+    '''
+    try:
+        WCAPI.post(
+            endpoint='products/batch',
+            data={
+                'delete': 
+            }
+        )
+    except Exception:
+        pass
+    '''
+
+    return len(to_delete)
 
 
 def get_or_create_categories(categories):

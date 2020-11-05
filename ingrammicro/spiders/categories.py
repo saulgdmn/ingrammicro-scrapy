@@ -13,7 +13,7 @@ class CategoriesSpider(scrapy.Spider):
     custom_settings = {
         'LOG_FILE': os.path.join(
             'crawls', '{}_{}.log'.format(
-                dt.now().strftime('%Y-%m-%dT%H-%M-%S'), name)
+                name, dt.now().strftime('%Y-%m-%d'))
         )
     }
 
@@ -29,7 +29,6 @@ class CategoriesSpider(scrapy.Spider):
 
     categories_products_deny = 0
     categories_products = 0
-    vendor_products = 0
 
     @classmethod
     def from_crawler(cls, crawler, *args, **kwargs):
@@ -40,7 +39,6 @@ class CategoriesSpider(scrapy.Spider):
     def spider_closed(self, spider):
         self.logger.info('categories_products_deny = {}'.format(self.categories_products_deny))
         self.logger.info('categories_products = {}'.format(self.categories_products))
-        self.logger.info('vendor_products = {}'.format(self.vendor_products))
 
     def category_is_deny(self, category):
         for x in self.deny_categories:
@@ -124,8 +122,6 @@ class CategoriesSpider(scrapy.Spider):
             record_count = result.get('RecordCount', None)
             if not record_count:
                 continue
-
-            self.vendor_products += record_count
 
             for page in range(1, (record_count // 50) + 2):
                 yield Request(

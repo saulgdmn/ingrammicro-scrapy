@@ -15,17 +15,24 @@ class ProductsSpider(scrapy.Spider):
     custom_settings = {
         'LOG_FILE': os.path.join(
             'crawls', '{}_{}.log'.format(
-                dt.now().strftime('%Y-%m-%dT%H-%M-%S'), name)
+                name, dt.now().strftime('%Y-%m-%d'))
         )
     }
 
     def start_requests(self):
 
         ingra_products = self.settings.get('INGRA_PRODUCTS')
+        existed_data = []
         with open(ingra_products, 'r') as f:
-            existed_data = [r.get('href').split('=')[1] for r in json.load(f)]
+            for r in f:
+                data = json.loads(r)
+                if not data:
+                    continue
 
-        print('{} -> {}'.format(ingra_products, len(existed_data)))
+                href = data.get('href', None)
+                existed_data.append(href.split('=')[1])
+
+        self.logger.info('Count of skus in {} is {}..'.format(ingra_products, len(existed_data)))
 
         output_filename = list(self.settings.get('FEEDS').attributes.keys())[0]
         with open(output_filename, 'r', encoding='utf8', errors='ignore') as f:
@@ -48,10 +55,10 @@ class ProductsSpider(scrapy.Spider):
             re.search(r'\{\"productDetail\"\:([^*]+"isEndUserFavoriteEnabled":true})\);', response.text)
 
         if not m:
-            raise DropItem('Match error')
+            self.logger.warning('Match error on {}'.format(response.url))
 
         data = json.loads(m.group(0)[:-2]).get('productDetail', None)
         if not data:
-            raise DropItem('Data error')
+            self.logger.warning('Data error on {}'.format(response.url))
 
         return data
