@@ -89,7 +89,7 @@ def pull_products():
     PRODUCTS_DB.dump()
 
 
-def cleanup_products(search_queries):
+def cleanup_products(search_queries, batch_len):
     to_delete = []
     for query in search_queries:
         page = 1
@@ -129,12 +129,12 @@ def cleanup_products(search_queries):
         to_delete += [item.get('id', None) for item in data]
         page += 1
 
-    for i in range(0, len(to_delete), 100):
+    for x in range(0, len(to_delete), batch_len):
         try:
             WCAPI.post(
                 endpoint='products/batch',
                 data={
-                    'delete': to_delete[i: i + 100]
+                    'delete': to_delete[x: x + batch_len]
                 }
             )
         except Exception:
@@ -396,7 +396,7 @@ def run():
 
     if args.cleanup_products:
         log.info('Cleanup products..')
-        deleted_products_count = cleanup_products(['software', 'license', 'training'])
+        deleted_products_count = cleanup_products(['software', 'license', 'training'], batch_len)
         log.info('Count of deleted products: {}'.format(deleted_products_count))
 
 
