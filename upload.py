@@ -396,7 +396,7 @@ def run():
 
     if args.cleanup_products:
         log.info('Cleanup products..')
-        deleted_products_count = cleanup_products(['software', 'license', 'training'], batch_len)
+        deleted_products_count = cleanup_products(['software', 'license', 'training'], int(args.batch_len))
         log.info('Count of deleted products: {}'.format(deleted_products_count))
 
 
