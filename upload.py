@@ -117,8 +117,8 @@ def cleanup_products(search_queries, batch_len):
             params={
                 'per_page': 100,
                 'page': page,
-                'min_price': '0.0',
-                'max_price': '0.2'
+                'min_price': '0.00',
+                'max_price': '0.20'
             }
         )
 
@@ -396,7 +396,7 @@ def run():
 
     if args.cleanup_products:
         log.info('Cleanup products..')
-        deleted_products_count = cleanup_products(['software', 'license', 'training'], int(args.batch_len))
+        deleted_products_count = cleanup_products(['software', 'license', 'training', 'service'], int(args.batch_len))
         log.info('Count of deleted products: {}'.format(deleted_products_count))
 
 
