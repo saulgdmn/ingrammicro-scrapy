@@ -124,9 +124,14 @@ def cleanup_products(search_queries, batch_len):
         if not data:
             break
 
-        to_delete += [item.get('id', None) for item in data if item.get('price', None)]
+        for item in data:
+            if not item.get('price', None):
+                continue
+
+            to_delete.append(item.get('id'))
         page += 1
 
+    return len(to_delete)
     for x in range(0, len(to_delete), batch_len):
         try:
             WCAPI.post(
