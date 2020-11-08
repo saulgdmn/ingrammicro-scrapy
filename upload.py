@@ -125,7 +125,7 @@ def cleanup_products(search_queries, batch_len):
             break
 
         for item in data:
-            if not item.get('price', None):
+            if item.get('price', None):
                 continue
 
             to_delete.append(item.get('id'))
