@@ -117,8 +117,6 @@ def cleanup_products(search_queries, batch_len):
             params={
                 'per_page': 100,
                 'page': page,
-                'min_price': '0.00',
-                'max_price': '0.20'
             }
         )
 
@@ -126,7 +124,7 @@ def cleanup_products(search_queries, batch_len):
         if not data:
             break
 
-        to_delete += [item.get('id', None) for item in data]
+        to_delete += [item.get('id', None) for item in data if item.get('price', None)]
         page += 1
 
     for x in range(0, len(to_delete), batch_len):
