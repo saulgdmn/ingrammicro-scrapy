@@ -129,7 +129,7 @@ def cleanup_products(search_queries, batch_len):
                         to_delete.append(item.get('id'))
                         break
 
-        print(len(to_delete))
+        log.info(len(to_delete))
 
         page += 1
     return len(to_delete)
