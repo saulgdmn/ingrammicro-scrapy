@@ -91,6 +91,49 @@ def pull_products():
 
 def cleanup_products(search_queries, batch_len):
     to_delete = []
+
+    page = 1
+    while 1:
+        response = WCAPI.get(
+            endpoint='products',
+            params={
+                'per_page': 100,
+                'page': page,
+            }
+        )
+
+        data = response.json()
+        if not data:
+            break
+
+        for item in data:
+            if not item.get('price', None) or item.get('price') < 100.0:
+                to_delete.append(item.get('id'))
+                continue
+
+            if not item.get('name', None):
+                to_delete.append(item.get('id'))
+                continue
+
+            if not item.get('sku', None):
+                to_delete.append(item.get('id'))
+                continue
+
+            for x in ['software', 'service', 'license', 'licensing', 'lics', 'toy', 'trng', 'trainings']:
+                if x in item.get('name').lower() or x in item.get('sku').lower():
+                    to_delete.append(item.get('id'))
+                    break
+
+                for y in item.get('categories'):
+                    if x in y.get('name').lower():
+                        to_delete.append(item.get('id'))
+                        break
+
+        print(len(to_delete))
+
+        page += 1
+    return len(to_delete)
+    '''
     for query in search_queries:
         page = 1
         while 1:
@@ -142,7 +185,7 @@ def cleanup_products(search_queries, batch_len):
             )
         except Exception:
             pass
-
+    '''
     return len(to_delete)
 
 
