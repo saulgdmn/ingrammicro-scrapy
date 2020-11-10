@@ -107,7 +107,7 @@ def cleanup_products(search_queries, batch_len):
             break
 
         for item in data:
-            if not item.get('price', None) or item.get('price') < 100.0:
+            if not item.get('price', None) or item.get('price') < 10.0:
                 to_delete.append(item.get('id'))
                 continue
 
@@ -119,7 +119,7 @@ def cleanup_products(search_queries, batch_len):
                 to_delete.append(item.get('id'))
                 continue
 
-            for x in ['software', 'service', 'license', 'licensing', 'lics', 'toy', 'trng', 'trainings']:
+            for x in ['software', 'service', 'license', 'licensing', 'lics', 'toy', 'trng', 'training']:
                 if x in item.get('name').lower() or x in item.get('sku').lower():
                     to_delete.append(item.get('id'))
                     break
