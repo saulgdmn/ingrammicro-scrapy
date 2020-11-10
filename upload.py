@@ -129,9 +129,19 @@ def cleanup_products(search_queries, batch_len):
                         to_delete.append(item.get('id'))
                         break
 
-        log.info(len(to_delete))
-
         page += 1
+
+    for x in range(0, len(to_delete), batch_len):
+        try:
+            WCAPI.post(
+                endpoint='products/batch',
+                data={
+                    'delete': to_delete[x: x + batch_len]
+                }
+            )
+        except Exception:
+            pass
+
     return len(to_delete)
     '''
     for query in search_queries:
@@ -186,7 +196,6 @@ def cleanup_products(search_queries, batch_len):
         except Exception:
             pass
     '''
-    return len(to_delete)
 
 
 def get_or_create_categories(categories):
