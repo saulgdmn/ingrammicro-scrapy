@@ -119,7 +119,7 @@ def cleanup_products(search_queries, batch_len):
                 to_delete.append(item.get('id'))
                 continue
 
-            for x in ['software', 'service', 'license', 'licensing', 'lics', 'toy', 'trng', 'training']:
+            for x in ['software', 'service', 'license', 'licensing', 'lic', 'toy', 'trng', 'training']:
                 if x in item.get('name').lower() or x in item.get('sku').lower():
                     to_delete.append(item.get('id'))
                     break
@@ -143,59 +143,6 @@ def cleanup_products(search_queries, batch_len):
             pass
 
     return len(to_delete)
-    '''
-    for query in search_queries:
-        page = 1
-        while 1:
-            response = WCAPI.get(
-                endpoint='products',
-                params={
-                    'per_page': 100,
-                    'page': page,
-                    'search': query
-                }
-            )
-
-            data = response.json()
-            if not data:
-                break
-
-            to_delete += [item.get('id', None) for item in data]
-            page += 1
-
-    page = 1
-    while 1:
-        response = WCAPI.get(
-            endpoint='products',
-            params={
-                'per_page': 100,
-                'page': page,
-            }
-        )
-
-        data = response.json()
-        if not data:
-            break
-
-        for item in data:
-            if item.get('price', None):
-                continue
-
-            to_delete.append(item.get('id'))
-        page += 1
-
-    return len(to_delete)
-    for x in range(0, len(to_delete), batch_len):
-        try:
-            WCAPI.post(
-                endpoint='products/batch',
-                data={
-                    'delete': to_delete[x: x + batch_len]
-                }
-            )
-        except Exception:
-            pass
-    '''
 
 
 def get_or_create_categories(categories):
@@ -304,14 +251,14 @@ def handle_product(item):
     if stock_status == 'Out Of Stock' and not is_direct_ship and not is_direct_ship_orderable:
         return None
 
-    if not item.get('vpn', None):
+    if not item.get('vpn', None) or not item.get('title', None):
         return None
 
     if not item.get('priceAndStock').get('msrpPrice', None) and not item.get('priceAndStock').get('dealerPrice', None):
         return None
 
-    for x in ['training', 'software', 'warranties', 'warranty']:
-        if x in item.get('title', '').lower():
+    for x in ['software', 'service', 'license', 'licensing', 'lic', 'toy', 'trng', 'training']:
+        if x in item.get('title',).lower() or x in item.get('vpn').lower():
             return None
 
     data = {
@@ -441,13 +388,13 @@ def run():
         pull_products()
         log.info('Count of pulled products: {}'.format(len(PRODUCTS_DB.getall())))
 
-    '''
+
     handle_filename(
         fn=args.filename,
         batch_len=int(args.batch_len),
         update_if_exist=args.update_if_exist
     )
-    '''
+
 
     if args.cleanup_products:
         log.info('Cleanup products..')
