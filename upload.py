@@ -360,6 +360,7 @@ def run():
     parser.add_argument('--pull_categories', action='store_true')
     parser.add_argument('--pull_products', action='store_true')
     parser.add_argument('--cleanup_products', action='store_true')
+    parser.add_argument('--import_products', action='store_true')
 
     args = parser.parse_args()
 
@@ -388,13 +389,12 @@ def run():
         pull_products()
         log.info('Count of pulled products: {}'.format(len(PRODUCTS_DB.getall())))
 
-
-    handle_filename(
-        fn=args.filename,
-        batch_len=int(args.batch_len),
-        update_if_exist=args.update_if_exist
-    )
-
+    if args.import_products:
+        handle_filename(
+            fn=args.filename,
+            batch_len=int(args.batch_len),
+            update_if_exist=args.update_if_exist
+        )
 
     if args.cleanup_products:
         log.info('Cleanup products..')
